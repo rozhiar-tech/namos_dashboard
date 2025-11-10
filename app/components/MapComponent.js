@@ -1,26 +1,52 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { Icon } from "leaflet";
+import { useEffect, useMemo } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import { Icon, latLngBounds } from "leaflet";
 
 const driverIcon = new Icon({
-  iconUrl: "/taxi-marker.png", // Add custom marker in /public
-  iconSize: [30, 30],
+  iconUrl: "/taxi-marker.png",
+  iconSize: [28, 28],
 });
 
-export default function MapComponent({ drivers }) {
+function FitBounds({ drivers }) {
+  const map = useMap();
+  const positions = useMemo(
+    () =>
+      drivers
+        .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng))
+        .map((d) => [d.lat, d.lng]),
+    [drivers]
+  );
+
+  useEffect(() => {
+    if (!positions.length) return;
+    const bounds = latLngBounds(positions);
+    map.fitBounds(bounds.pad(0.2));
+  }, [positions, map]);
+
+  return null;
+}
+
+export default function MapComponent({ drivers = [] }) {
   return (
     <MapContainer
-      center={[36.2, 44.0]} // Default center
+      center={[36.2, 44.0]}
       zoom={13}
-      scrollWheelZoom={true}
-      className="h-[500px] w-full rounded shadow"
+      className="h-full w-full"
+      scrollWheelZoom
     >
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
         attribution="© OpenStreetMap contributors"
       />
-
+      <FitBounds drivers={drivers} />
       {drivers.map((driver) => (
         <Marker
           key={driver.driverId}
@@ -28,9 +54,13 @@ export default function MapComponent({ drivers }) {
           icon={driverIcon}
         >
           <Popup>
-            Driver #{driver.driverId}
-            <br />
-            Lat: {driver.lat}, Lng: {driver.lng}
+            <p className="font-semibold">Driver #{driver.driverId}</p>
+            <p className="text-xs text-slate-500">
+              Lat {driver.lat?.toFixed(4)} · Lng {driver.lng?.toFixed(4)}
+            </p>
+            {driver.status && (
+              <p className="text-xs mt-1 capitalize">Status: {driver.status}</p>
+            )}
           </Popup>
         </Marker>
       ))}
