@@ -28,7 +28,7 @@ export default function DriverOnboarding({ onCreated }) {
     let cancelled = false;
     async function loadVehicles() {
       try {
-        const payload = await apiRequest("/admin/vehicles?available=1");
+        const payload = await apiRequest("/vehicles/mine");
         if (!cancelled && Array.isArray(payload?.vehicles)) {
           setVehicles(payload.vehicles);
         }
@@ -70,25 +70,24 @@ export default function DriverOnboarding({ onCreated }) {
         role: "driver",
         ownerId: form.ownerId ? Number(form.ownerId) : undefined,
       };
-      const driver = await apiRequest("/auth/register-driver", {
+      const registration = await apiRequest("/auth/register-driver", {
         method: "POST",
         body: JSON.stringify(driverPayload),
       });
+      const createdDriver = registration?.user ?? registration;
 
-      if (form.assignVehicleId) {
-        await apiRequest(`/admin/vehicles/${form.assignVehicleId}/assign`, {
+      if (form.assignVehicleId && createdDriver?.id) {
+        await apiRequest(`/vehicles/${form.assignVehicleId}/assign`, {
           method: "POST",
           body: JSON.stringify({
-            driverId: driver?.id,
-            ownerId: form.ownerId ? Number(form.ownerId) : undefined,
-            notes: form.vehicleNotes,
+            driverId: createdDriver.id,
           }),
         });
       }
 
       setMessage({ type: "success", text: "Driver onboarded successfully." });
       setForm(EMPTY_FORM);
-      onCreated?.(driver);
+      onCreated?.(createdDriver);
     } catch (error) {
       setMessage({
         type: "error",

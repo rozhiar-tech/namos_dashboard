@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import useAuth from "../hooks/useAuth";
 
 const NAV_LINKS = [
   { href: "/admin", label: "Overview", tab: "overview" },
@@ -16,7 +18,21 @@ const NAV_LINKS = [
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user, loading, logout } = useAuth();
   const activeTab = searchParams.get("tab") ?? "overview";
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (user.role !== "admin") {
+      logout();
+      router.replace("/login");
+    }
+  }, [loading, user, logout, router]);
 
   const currentLabel = (() => {
     if (pathname === "/admin") {
@@ -28,6 +44,19 @@ export default function AdminLayout({ children }) {
       NAV_LINKS.find((item) => item.href === pathname)?.label ?? "Dashboard"
     );
   })();
+
+  const handleSignOut = () => {
+    logout();
+    router.replace("/login");
+  };
+
+  if (loading || !user || user.role !== "admin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <p className="text-sm text-slate-500">Checking admin session…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex">
@@ -57,8 +86,16 @@ export default function AdminLayout({ children }) {
             );
           })}
         </nav>
-        <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60">
-          Admin session active
+        <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60 space-y-2">
+          <p className="text-white/80">
+            Signed in as <span className="font-semibold">{user.fullName ?? user.email ?? user.phone}</span>
+          </p>
+          <button
+            onClick={handleSignOut}
+            className="w-full rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
@@ -69,7 +106,10 @@ export default function AdminLayout({ children }) {
             <p className="text-lg font-semibold">{currentLabel}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50">
+            <button
+              className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50"
+              onClick={() => router.refresh()}
+            >
               Refresh data
             </button>
             <Link
@@ -78,6 +118,12 @@ export default function AdminLayout({ children }) {
             >
               Create driver
             </Link>
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50 md:hidden"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 

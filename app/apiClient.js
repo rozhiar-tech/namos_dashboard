@@ -1,3 +1,5 @@
+import { getStoredToken } from "./lib/authStorage";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://95.111.224.58:3001/api";
 
@@ -13,8 +15,16 @@ export async function apiRequest(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  if (process.env.NEXT_PUBLIC_ADMIN_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN}`;
+  const explicitToken =
+    typeof options.token === "string" && options.token.length > 0
+      ? options.token
+      : null;
+  const storedToken = getStoredToken();
+  const envToken = process.env.NEXT_PUBLIC_ADMIN_TOKEN;
+  const token = explicitToken || storedToken || envToken;
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(buildUrl(path), {
