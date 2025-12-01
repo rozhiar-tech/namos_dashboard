@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import useAuth from "../hooks/useAuth";
 
 const NAV_LINKS = [
@@ -16,6 +16,20 @@ const NAV_LINKS = [
 ];
 
 export default function AdminLayout({ children }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-100">
+          <p className="text-sm text-slate-500">Loading dashboard…</p>
+        </div>
+      }
+    >
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </Suspense>
+  );
+}
+
+function AdminLayoutContent({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
