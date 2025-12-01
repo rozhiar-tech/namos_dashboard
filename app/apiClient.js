@@ -1,10 +1,26 @@
 import { getStoredToken } from "./lib/authStorage";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://95.111.224.58:3001/api";
+const DEFAULT_API_BASE = "https://95.111.224.58:3001/api";
+
+const getApiBase = () => {
+  const rawBase =
+    process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
+
+  // Avoid mixed content when the app is served over HTTPS
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    rawBase.startsWith("http://")
+  ) {
+    return `https://${rawBase.slice("http://".length)}`;
+  }
+
+  return rawBase;
+};
 
 const buildUrl = (path) => {
-  const base = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
+  const apiBase = getApiBase();
+  const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
   const route = path.startsWith("/") ? path : `/${path}`;
   return `${base}${route}`;
 };

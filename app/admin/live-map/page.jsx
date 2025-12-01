@@ -7,7 +7,14 @@ const MapComponent = dynamic(() => import("../../components/MapComponent"), {
   ssr: false,
 });
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://95.111.224.58:3001";
+const rawSocketUrl =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "https://95.111.224.58:3001";
+const SOCKET_URL =
+  typeof window !== "undefined" && window.location.protocol === "https:"
+    ? rawSocketUrl
+        .replace(/^http:\/\//i, "https://")
+        .replace(/^ws:\/\//i, "wss://")
+    : rawSocketUrl;
 
 export default function LiveMapPage() {
   const { driverLocations, trips, events } = useSocket(SOCKET_URL);
