@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../apiClient";
 
+const ROLE_OPTIONS = [
+  { value: "driver", label: "Driver" },
+  { value: "owner_driver", label: "Owner & driver" },
+  { value: "owner", label: "Owner only" },
+];
+
+const PROFILE_TYPES = [
+  { value: "individual", label: "Individual" },
+  { value: "company", label: "Company / fleet" },
+];
+
 const EMPTY_FORM = {
   fullName: "",
   email: "",
@@ -16,6 +27,10 @@ const EMPTY_FORM = {
   ownerId: "",
   assignVehicleId: "",
   vehicleNotes: "",
+  role: "driver",
+  profileType: "individual",
+  companyName: "",
+  fleetVehicleCount: "",
 };
 
 export default function DriverOnboarding({ onCreated }) {
@@ -23,6 +38,11 @@ export default function DriverOnboarding({ onCreated }) {
   const [vehicles, setVehicles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
+  const isDriverRoleSelected =
+    form.role === "driver" || form.role === "owner_driver";
+  const isOwnerRoleSelected =
+    form.role === "owner" || form.role === "owner_driver";
+  const requiresCompanyDetails = form.profileType === "company";
 
   useEffect(() => {
     let cancelled = false;
@@ -67,16 +87,22 @@ export default function DriverOnboarding({ onCreated }) {
         zipCode: form.zipCode,
         governmentIdNumber: form.governmentIdNumber,
         driverLicenseNumber: form.driverLicenseNumber,
-        role: "driver",
+        role: form.role,
+        profileType: form.profileType,
+        companyName:
+          form.profileType === "company" ? form.companyName : undefined,
         ownerId: form.ownerId ? Number(form.ownerId) : undefined,
       };
+      if (isOwnerRoleSelected && form.fleetVehicleCount) {
+        driverPayload.ownerVehicleCount = Number(form.fleetVehicleCount);
+      }
       const registration = await apiRequest("/auth/register-driver", {
         method: "POST",
         body: JSON.stringify(driverPayload),
       });
       const createdDriver = registration?.user ?? registration;
 
-      if (form.assignVehicleId && createdDriver?.id) {
+      if (form.assignVehicleId && createdDriver?.id && isDriverRoleSelected) {
         await apiRequest(`/vehicles/${form.assignVehicleId}/assign`, {
           method: "POST",
           body: JSON.stringify({
@@ -102,14 +128,82 @@ export default function DriverOnboarding({ onCreated }) {
     <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1 mb-6">
         <p className="text-lg font-semibold text-slate-900">
-          Driver onboarding
+          Driver & owner onboarding
         </p>
         <p className="text-xs text-slate-500">
-          Only administrators can create driver accounts. Every new account can be
-          paired with a vehicle immediately.
+          Only administrators can create driver or owner accounts. Drivers can also be paired
+          with a vehicle immediately.
         </p>
       </div>
       <form className="grid gap-6" onSubmit={handleSubmit}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Account role
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {ROLE_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  onClick={() =>
+                    setForm((prev) => ({ ...prev, role: option.value }))
+                  }
+                  className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                    form.role === option.value
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 text-slate-600 hover:border-slate-400"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Owners manage vehicles while owner-drivers can also take trips.
+            </p>
+          </div>
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
+            Profile type
+            <select
+              name="profileType"
+              value={form.profileType}
+              onChange={onChange}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
+            >
+              {PROFILE_TYPES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-slate-400">
+              Company accounts require a registered company name.
+            </span>
+          </label>
+        </div>
+
+        {requiresCompanyDetails && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextInput
+              label="Company name"
+              name="companyName"
+              value={form.companyName}
+              onChange={onChange}
+              required={requiresCompanyDetails}
+            />
+            <TextInput
+              label="Number of fleet vehicles"
+              name="fleetVehicleCount"
+              type="number"
+              min="1"
+              value={form.fleetVehicleCount}
+              onChange={onChange}
+              placeholder="How many cars are active?"
+            />
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput
             label="Full name"
@@ -185,31 +279,44 @@ export default function DriverOnboarding({ onCreated }) {
             onChange={onChange}
             placeholder="Company / fleet owner"
           />
-          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
-            Assign vehicle
-            <select
-              name="assignVehicleId"
-              value={form.assignVehicleId}
-              onChange={onChange}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
-            >
-              <option value="">Select later</option>
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  #{vehicle.id} · {vehicle.label || vehicle.make} ({
-                    vehicle.plateNumber ?? vehicle.plate_number
-                  })
-                </option>
-              ))}
-            </select>
-          </label>
-          <TextInput
-            label="Notes"
-            name="vehicleNotes"
-            value={form.vehicleNotes}
-            onChange={onChange}
-            placeholder="Shift, color, etc."
-          />
+          {isDriverRoleSelected ? (
+            <>
+              <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
+                Assign vehicle
+                <select
+                  name="assignVehicleId"
+                  value={form.assignVehicleId}
+                  onChange={onChange}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
+                >
+                  <option value="">Select later</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      #{vehicle.id} · {vehicle.label || vehicle.make} (
+                        {vehicle.plateNumber ?? vehicle.plate_number}
+                      )
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <TextInput
+                label="Notes"
+                name="vehicleNotes"
+                value={form.vehicleNotes}
+                onChange={onChange}
+                placeholder="Shift, color, etc."
+              />
+            </>
+          ) : (
+            <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 px-3 py-4">
+              <p className="text-sm font-semibold text-slate-700">
+                Owner accounts manage their own vehicles
+              </p>
+              <p className="text-xs text-slate-500">
+                After creating the owner, add their vehicles from the Fleet tab.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
