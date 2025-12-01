@@ -1,12 +1,12 @@
 import { getStoredToken } from "./lib/authStorage";
 
-const DEFAULT_API_BASE = "https://95.111.224.58:3001/api";
+// Default: same-origin API through Nginx proxy
+const DEFAULT_API_BASE = "/api";
 
 const getApiBase = () => {
-  const rawBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
+  const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
 
-  // Avoid mixed content when the app is served over HTTPS
+  // If someone sets http://... while app is on https, auto-upgrade
   if (
     typeof window !== "undefined" &&
     window.location.protocol === "https:" &&
@@ -22,7 +22,7 @@ const buildUrl = (path) => {
   const apiBase = getApiBase();
   const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
   const route = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${route}`;
+  return `${base}${route}`; // e.g. "/api" + "/auth/login" => "/api/auth/login"
 };
 
 export async function apiRequest(path, options = {}) {
