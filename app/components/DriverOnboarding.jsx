@@ -1,18 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../apiClient";
-
-const ROLE_OPTIONS = [
-  { value: "driver", label: "Driver" },
-  { value: "owner_driver", label: "Owner & driver" },
-  { value: "owner", label: "Owner only" },
-];
-
-const PROFILE_TYPES = [
-  { value: "individual", label: "Individual" },
-  { value: "company", label: "Company / fleet" },
-];
 
 const EMPTY_FORM = {
   fullName: "",
@@ -21,51 +10,53 @@ const EMPTY_FORM = {
   password: "",
   age: "",
   address: "",
+  city: "",
+  country: "",
   zipCode: "",
   governmentIdNumber: "",
   driverLicenseNumber: "",
+  vehicleId: "",
   ownerId: "",
-  assignVehicleId: "",
-  vehicleNotes: "",
-  role: "driver",
-  profileType: "individual",
-  companyName: "",
-  fleetVehicleCount: "",
 };
 
-export default function DriverOnboarding({ onCreated }) {
+export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [owners, setOwners] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
-  const isDriverRoleSelected =
-    form.role === "driver" || form.role === "owner_driver";
-  const isOwnerRoleSelected =
-    form.role === "owner" || form.role === "owner_driver";
-  const requiresCompanyDetails = form.profileType === "company";
+  const vehicleOptions = useMemo(() => {
+    if (form.ownerId) {
+      const owner = owners.find((o) => String(o.id) === String(form.ownerId));
+      return owner?.vehicles ?? [];
+    }
+    return vehicles;
+  }, [form.ownerId, owners, vehicles]);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadVehicles() {
+    async function loadOwnersAndVehicles() {
       try {
-        const payload = await apiRequest("/vehicles/mine");
-        if (!cancelled && Array.isArray(payload?.vehicles)) {
-          setVehicles(payload.vehicles);
-        }
+        const payload = await apiRequest("/admin/owners");
+        if (cancelled) return;
+        const ownerList = Array.isArray(payload?.owners) ? payload.owners : [];
+        setOwners(ownerList);
+        setVehicles(
+          ownerList.flatMap((o) =>
+            (o.vehicles ?? []).map((v) => ({ ...v, owner: o }))
+          )
+        );
       } catch (error) {
-        if (!cancelled) {
-          setVehicles([
-            { id: 1, label: "White Camry", plateNumber: "ABC-123" },
-            { id: 2, label: "Black Sprinter", plateNumber: "KRD-009" },
-          ]);
-        }
+        if (cancelled) return;
+        setOwners([]);
+        setVehicles([]);
       }
     }
-    loadVehicles();
+    loadOwnersAndVehicles();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -84,34 +75,28 @@ export default function DriverOnboarding({ onCreated }) {
         password: form.password,
         age: Number(form.age) || undefined,
         homeAddress: form.address,
+        city: form.city,
+        country: form.country,
         zipCode: form.zipCode,
         governmentIdNumber: form.governmentIdNumber,
         driverLicenseNumber: form.driverLicenseNumber,
-        role: form.role,
-        profileType: form.profileType,
-        companyName:
-          form.profileType === "company" ? form.companyName : undefined,
+        vehicleId: Number(form.vehicleId) || undefined,
         ownerId: form.ownerId ? Number(form.ownerId) : undefined,
       };
-      if (isOwnerRoleSelected && form.fleetVehicleCount) {
-        driverPayload.ownerVehicleCount = Number(form.fleetVehicleCount);
+      if (!driverPayload.vehicleId) {
+        throw new Error("Select a vehicle to assign this driver.");
       }
-      const registration = await apiRequest("/auth/register-driver", {
+
+      const result = await apiRequest("/admin/drivers", {
         method: "POST",
         body: JSON.stringify(driverPayload),
       });
-      const createdDriver = registration?.user ?? registration;
+      const createdDriver = result?.driver ?? result?.user ?? result;
 
-      if (form.assignVehicleId && createdDriver?.id && isDriverRoleSelected) {
-        await apiRequest(`/vehicles/${form.assignVehicleId}/assign`, {
-          method: "POST",
-          body: JSON.stringify({
-            driverId: createdDriver.id,
-          }),
-        });
-      }
-
-      setMessage({ type: "success", text: "Driver onboarded successfully." });
+      setMessage({
+        type: "success",
+        text: "Driver onboarded and assigned successfully.",
+      });
       setForm(EMPTY_FORM);
       onCreated?.(createdDriver);
     } catch (error) {
@@ -128,82 +113,13 @@ export default function DriverOnboarding({ onCreated }) {
     <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1 mb-6">
         <p className="text-lg font-semibold text-slate-900">
-          Driver & owner onboarding
+          Driver onboarding
         </p>
         <p className="text-xs text-slate-500">
-          Only administrators can create driver or owner accounts. Drivers can also be paired
-          with a vehicle immediately.
+          Admins can create drivers and assign them to a vehicle instantly.
         </p>
       </div>
       <form className="grid gap-6" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Account role
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {ROLE_OPTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, role: option.value }))
-                  }
-                  className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
-                    form.role === option.value
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 text-slate-600 hover:border-slate-400"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Owners manage vehicles while owner-drivers can also take trips.
-            </p>
-          </div>
-          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
-            Profile type
-            <select
-              name="profileType"
-              value={form.profileType}
-              onChange={onChange}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
-            >
-              {PROFILE_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] text-slate-400">
-              Company accounts require a registered company name.
-            </span>
-          </label>
-        </div>
-
-        {requiresCompanyDetails && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <TextInput
-              label="Company name"
-              name="companyName"
-              value={form.companyName}
-              onChange={onChange}
-              required={requiresCompanyDetails}
-            />
-            <TextInput
-              label="Number of fleet vehicles"
-              name="fleetVehicleCount"
-              type="number"
-              min="1"
-              value={form.fleetVehicleCount}
-              onChange={onChange}
-              placeholder="How many cars are active?"
-            />
-          </div>
-        )}
-
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput
             label="Full name"
@@ -258,6 +174,18 @@ export default function DriverOnboarding({ onCreated }) {
             onChange={onChange}
           />
           <TextInput
+            label="City"
+            name="city"
+            value={form.city}
+            onChange={onChange}
+          />
+          <TextInput
+            label="Country"
+            name="country"
+            value={form.country}
+            onChange={onChange}
+          />
+          <TextInput
             label="Government ID"
             name="governmentIdNumber"
             value={form.governmentIdNumber}
@@ -272,51 +200,47 @@ export default function DriverOnboarding({ onCreated }) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <TextInput
-            label="Owner ID (if applicable)"
-            name="ownerId"
-            value={form.ownerId}
-            onChange={onChange}
-            placeholder="Company / fleet owner"
-          />
-          {isDriverRoleSelected ? (
-            <>
-              <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
-                Assign vehicle
-                <select
-                  name="assignVehicleId"
-                  value={form.assignVehicleId}
-                  onChange={onChange}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
-                >
-                  <option value="">Select later</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      #{vehicle.id} · {vehicle.label || vehicle.make} (
-                        {vehicle.plateNumber ?? vehicle.plate_number}
-                      )
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <TextInput
-                label="Notes"
-                name="vehicleNotes"
-                value={form.vehicleNotes}
-                onChange={onChange}
-                placeholder="Shift, color, etc."
-              />
-            </>
-          ) : (
-            <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 px-3 py-4">
-              <p className="text-sm font-semibold text-slate-700">
-                Owner accounts manage their own vehicles
-              </p>
-              <p className="text-xs text-slate-500">
-                After creating the owner, add their vehicles from the Fleet tab.
-              </p>
-            </div>
-          )}
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
+            Owner (optional filter)
+            <select
+              name="ownerId"
+              value={form.ownerId}
+              onChange={onChange}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
+            >
+              <option value="">Any owner</option>
+              {owners.map((owner) => (
+                <option key={owner.id} value={owner.id}>
+                  #{owner.id} · {owner.fullName ?? owner.name ?? "Owner"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1 md:col-span-2">
+            Assign vehicle
+            <select
+              name="vehicleId"
+              value={form.vehicleId}
+              onChange={onChange}
+              required
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
+            >
+              <option value="">Select a vehicle</option>
+              {vehicleOptions.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  #{vehicle.id} · {vehicle.label || vehicle.make} (
+                    {vehicle.plateNumber ?? vehicle.plate_number}
+                  ) — owner:{" "}
+                  {vehicle.owner?.fullName ??
+                    vehicle.ownerName ??
+                    "Unknown"}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-slate-400">
+              Drivers must be assigned to a vehicle at creation.
+            </span>
+          </label>
         </div>
 
         <div className="flex flex-col gap-2">

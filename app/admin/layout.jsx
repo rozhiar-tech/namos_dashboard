@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/admin?tab=fleet", label: "Fleet", tab: "fleet" },
   { href: "/admin?tab=owners", label: "Owners", tab: "owners" },
   { href: "/admin?tab=trips", label: "Trips", tab: "trips" },
+  { href: "/admin/onboarding", label: "Add records", tab: null },
   { href: "/admin/live-map", label: "Live Map", tab: null },
 ];
 
@@ -127,10 +128,10 @@ function AdminLayoutContent({ children }) {
               Refresh data
             </button>
             <Link
-              href="/admin?tab=drivers"
+              href="/admin/onboarding"
               className="px-3 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800"
             >
-              Create driver
+              Add records
             </Link>
             <button
               onClick={handleSignOut}
