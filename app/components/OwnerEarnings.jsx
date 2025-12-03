@@ -47,34 +47,46 @@ export default function OwnerEarnings() {
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        {owners.map((owner) => (
+        {owners.map((owner) => {
+          const vehicleCount = Array.isArray(owner.vehicles)
+            ? owner.vehicles.length
+            : Number(owner.vehicles ?? 0);
+          const name =
+            owner.name || owner.fullName || owner.companyName || "Owner";
+          const revenue =
+            typeof owner.revenueMonth === "number"
+              ? owner.revenueMonth
+              : 0;
+          const driverCount =
+            typeof owner.drivers === "number" ? owner.drivers : owner.drivers?.length || 0;
+          return (
           <article
             key={owner.id}
             className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-slate-900">{owner.name}</p>
+                <p className="font-semibold text-slate-900">{name}</p>
                 <p className="text-xs text-slate-500">Owner #{owner.id}</p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                {owner.vehicles ?? 0} vehicles
+                {vehicleCount} vehicles
               </span>
             </div>
             <p className="mt-4 text-sm text-slate-500">Gross revenue (month)</p>
             <p className="text-2xl font-semibold text-slate-900">
-              SEK {(owner.revenueMonth / 100).toLocaleString("en-US", {
+              SEK {(revenue / 100).toLocaleString("en-US", {
                 minimumFractionDigits: 2,
               })}
             </p>
             <p className="text-xs text-slate-500 mt-2">
-              {owner.drivers ?? 0} active drivers under this owner.
+              {driverCount} active drivers under this owner.
             </p>
             <button className="mt-4 text-xs font-semibold text-slate-900 underline">
               Open owner console
             </button>
           </article>
-        ))}
+        )})}
         {!owners.length && (
           <p className="text-xs text-slate-500">No owner data available.</p>
         )}

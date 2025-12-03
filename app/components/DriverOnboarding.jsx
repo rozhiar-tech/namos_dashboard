@@ -15,7 +15,7 @@ const EMPTY_FORM = {
   zipCode: "",
   governmentIdNumber: "",
   driverLicenseNumber: "",
-  vehicleId: "",
+  vehicleIds: [],
   ownerId: "",
 };
 
@@ -25,13 +25,20 @@ export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
   const [vehicles, setVehicles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
+  const [vehicleSearch, setVehicleSearch] = useState("");
   const vehicleOptions = useMemo(() => {
-    if (form.ownerId) {
-      const owner = owners.find((o) => String(o.id) === String(form.ownerId));
-      return owner?.vehicles ?? [];
-    }
-    return vehicles;
-  }, [form.ownerId, owners, vehicles]);
+    const baseList = form.ownerId
+      ? owners.find((o) => String(o.id) === String(form.ownerId))?.vehicles ??
+        []
+      : vehicles;
+    if (!vehicleSearch.trim()) return baseList;
+    const term = vehicleSearch.trim().toLowerCase();
+    return baseList.filter((v) => {
+      const label = `${v.label ?? ""} ${v.make ?? ""} ${v.model ?? ""}`.toLowerCase();
+      const plate = `${v.plateNumber ?? v.plate_number ?? ""}`.toLowerCase();
+      return label.includes(term) || plate.includes(term);
+    });
+  }, [form.ownerId, owners, vehicles, vehicleSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +70,13 @@ export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const onVehicleChange = (e) => {
+    const selected = Array.from(e.target.selectedOptions || []).map((opt) =>
+      Number(opt.value)
+    );
+    setForm((prev) => ({ ...prev, vehicleIds: selected }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -80,11 +94,13 @@ export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
         zipCode: form.zipCode,
         governmentIdNumber: form.governmentIdNumber,
         driverLicenseNumber: form.driverLicenseNumber,
-        vehicleId: Number(form.vehicleId) || undefined,
+        vehicleId: Array.isArray(form.vehicleIds) && form.vehicleIds.length
+          ? Number(form.vehicleIds[0])
+          : undefined,
         ownerId: form.ownerId ? Number(form.ownerId) : undefined,
       };
       if (!driverPayload.vehicleId) {
-        throw new Error("Select a vehicle to assign this driver.");
+        throw new Error("Select at least one vehicle to assign this driver.");
       }
 
       const result = await apiRequest("/admin/drivers", {
@@ -92,6 +108,25 @@ export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
         body: JSON.stringify(driverPayload),
       });
       const createdDriver = result?.driver ?? result?.user ?? result;
+
+      // Assign any additional vehicles beyond the first one used for creation
+      const extraVehicles = (form.vehicleIds || []).slice(1);
+      for (const vid of extraVehicles) {
+        try {
+          await apiRequest(`/vehicles/${vid}/assign`, {
+            method: "POST",
+            body: JSON.stringify({ driverId: createdDriver.id }),
+          });
+        } catch (err) {
+          // surface the first failure, but continue attempts
+          setMessage({
+            type: "error",
+            text:
+              err?.message ||
+              "Driver created, but assigning an additional vehicle failed.",
+          });
+        }
+      }
 
       setMessage({
         type: "success",
@@ -216,30 +251,114 @@ export default function DriverOnboarding({ onCreated, refreshKey = 0 }) {
               ))}
             </select>
           </label>
-          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1 md:col-span-2">
-            Assign vehicle
-            <select
-              name="vehicleId"
-              value={form.vehicleId}
-              onChange={onChange}
-              required
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30 bg-white"
-            >
-              <option value="">Select a vehicle</option>
-              {vehicleOptions.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  #{vehicle.id} · {vehicle.label || vehicle.make} (
-                    {vehicle.plateNumber ?? vehicle.plate_number}
-                  ) — owner:{" "}
-                  {vehicle.owner?.fullName ??
-                    vehicle.ownerName ??
-                    "Unknown"}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] text-slate-400">
-              Drivers must be assigned to a vehicle at creation.
-            </span>
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-2 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <span>Assign vehicles (choose one or more)</span>
+              <span className="text-[11px] text-slate-400">
+                Required: pick at least one.
+              </span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
+              <input
+                type="search"
+                value={vehicleSearch}
+                onChange={(e) => setVehicleSearch(e.target.value)}
+                placeholder="Search by label or plate…"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                {form.vehicleIds.map((vid) => {
+                  const v = vehicleOptions.find((veh) => veh.id === vid) || {};
+                  const label =
+                    v.label || v.make || v.model || `Vehicle #${vid}`;
+                  const plate = v.plateNumber ?? v.plate_number;
+                  return (
+                    <span
+                      key={vid}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-700"
+                    >
+                      {label} {plate ? `(${plate})` : ""}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            vehicleIds: prev.vehicleIds.filter((id) => id !== vid),
+                          }))
+                        }
+                        className="text-slate-500 hover:text-slate-900"
+                        aria-label="Remove vehicle"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                {!form.vehicleIds.length && (
+                  <span className="text-[12px] text-slate-400">
+                    No vehicles selected.
+                  </span>
+                )}
+              </div>
+
+              <div className="max-h-52 overflow-y-auto space-y-2">
+                {vehicleOptions.map((vehicle) => {
+                  const selected = form.vehicleIds.includes(vehicle.id);
+                  return (
+                    <label
+                      key={vehicle.id}
+                      className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                        selected
+                          ? "border-slate-900 bg-slate-900/5"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => {
+                          setForm((prev) => {
+                            const exists = prev.vehicleIds.includes(vehicle.id);
+                            return {
+                              ...prev,
+                              vehicleIds: exists
+                                ? prev.vehicleIds.filter((id) => id !== vehicle.id)
+                                : [...prev.vehicleIds, vehicle.id],
+                            };
+                          });
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-900">
+                          {vehicle.label ||
+                            vehicle.make ||
+                            vehicle.model ||
+                            `Vehicle #${vehicle.id}`}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          #{vehicle.id} ·{" "}
+                          {vehicle.plateNumber ??
+                            vehicle.plate_number ??
+                            "n/a"}
+                          {vehicle.owner?.fullName
+                            ? ` — ${vehicle.owner.fullName}`
+                            : vehicle.ownerName
+                            ? ` — ${vehicle.ownerName}`
+                            : ""}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+                {!vehicleOptions.length && (
+                  <p className="text-xs text-slate-400">
+                    No vehicles match the search.
+                  </p>
+                )}
+              </div>
+            </div>
           </label>
         </div>
 

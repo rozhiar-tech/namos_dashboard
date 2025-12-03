@@ -45,6 +45,23 @@ export default function OnboardingPage() {
   const [vehicleMessage, setVehicleMessage] = useState(null);
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
 
+  const [promoteOwnerId, setPromoteOwnerId] = useState("");
+  const [promoteVehicleIds, setPromoteVehicleIds] = useState([]);
+  const [promoteMessage, setPromoteMessage] = useState(null);
+  const [promoteSubmitting, setPromoteSubmitting] = useState(false);
+  const [promoteVehicleSearch, setPromoteVehicleSearch] = useState("");
+  const promotionVehicles = promoteOwnerId
+    ? owners.find((o) => String(o.id) === String(promoteOwnerId))?.vehicles ??
+      []
+    : owners.flatMap((owner) => owner.vehicles ?? []);
+  const filteredPromotionVehicles = promotionVehicles.filter((vehicle) => {
+    if (!promoteVehicleSearch.trim()) return true;
+    const term = promoteVehicleSearch.trim().toLowerCase();
+    const label = `${vehicle.label ?? ""} ${vehicle.make ?? ""} ${vehicle.model ?? ""}`.toLowerCase();
+    const plate = `${vehicle.plateNumber ?? vehicle.plate_number ?? ""}`.toLowerCase();
+    return label.includes(term) || plate.includes(term);
+  });
+
   const fetchOwners = useCallback(async () => {
     setLoadingOwners(true);
     try {
@@ -172,6 +189,58 @@ export default function OnboardingPage() {
       });
     } finally {
       setVehicleSubmitting(false);
+    }
+  };
+
+  const handlePromoteOwner = async (event) => {
+    event.preventDefault();
+    setPromoteSubmitting(true);
+    setPromoteMessage(null);
+    try {
+      if (!promoteOwnerId || !promoteVehicleIds.length) {
+        throw new Error("Select an owner and at least one vehicle.");
+      }
+      const primaryVehicle = promoteVehicleIds[0];
+      await apiRequest("/admin/drivers/promote", {
+        method: "POST",
+        body: JSON.stringify({
+          ownerId: Number(promoteOwnerId),
+          vehicleId: Number(primaryVehicle),
+        }),
+      });
+      const extraVehicleIds = promoteVehicleIds.slice(1);
+      for (const vid of extraVehicleIds) {
+        try {
+          await apiRequest(`/vehicles/${vid}/assign`, {
+            method: "POST",
+            body: JSON.stringify({
+              driverId: Number(promoteOwnerId),
+            }),
+          });
+        } catch (err) {
+          setPromoteMessage({
+            type: "error",
+            text:
+              err?.message ||
+              "Promoted, but assigning one of the extra vehicles failed.",
+          });
+        }
+      }
+      setPromoteMessage({
+        type: "success",
+        text: "Owner promoted to driver and assigned.",
+      });
+      setPromoteOwnerId("");
+      setPromoteVehicleIds([]);
+      fetchOwners();
+      setDriverRefreshKey((key) => key + 1);
+    } catch (error) {
+      setPromoteMessage({
+        type: "error",
+        text: error?.message ?? "Unable to promote owner.",
+      });
+    } finally {
+      setPromoteSubmitting(false);
     }
   };
 
@@ -474,6 +543,155 @@ export default function OnboardingPage() {
                 }`}
               >
                 {vehicleMessage.text}
+              </p>
+            )}
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-1 mb-4">
+          <p className="text-lg font-semibold text-slate-900">
+            Promote existing owner to driver
+          </p>
+          <p className="text-xs text-slate-500">
+            Upgrade an owner to owner-driver and assign them to a vehicle.
+          </p>
+        </div>
+        <form className="grid gap-4 md:grid-cols-3" onSubmit={handlePromoteOwner}>
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-1">
+            Owner
+            <select
+              value={promoteOwnerId}
+              onChange={(e) => setPromoteOwnerId(e.target.value)}
+              required
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30"
+            >
+              <option value="">
+                {loadingOwners ? "Loading owners…" : "Select owner"}
+              </option>
+              {owners.map((owner) => (
+                <option key={owner.id} value={owner.id}>
+                  #{owner.id} · {owner.fullName ?? owner.name ?? "Owner"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-500 tracking-wide flex flex-col gap-2 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <span>Vehicle(s)</span>
+              <span className="text-[11px] text-slate-400">Select one or more.</span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3">
+              <input
+                type="search"
+                value={promoteVehicleSearch}
+                onChange={(e) => setPromoteVehicleSearch(e.target.value)}
+                placeholder="Search by label or plate…"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/30"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                {promoteVehicleIds.map((vid) => {
+                  const v =
+                    filteredPromotionVehicles.find((veh) => veh.id === vid) ||
+                    promotionVehicles.find((veh) => veh.id === vid) ||
+                    {};
+                  const label =
+                    v.label || v.make || v.model || `Vehicle #${vid}`;
+                  const plate = v.plateNumber ?? v.plate_number;
+                  return (
+                    <span
+                      key={vid}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-700"
+                    >
+                      {label} {plate ? `(${plate})` : ""}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPromoteVehicleIds((prev) =>
+                            prev.filter((id) => id !== vid)
+                          )
+                        }
+                        className="text-slate-500 hover:text-slate-900"
+                        aria-label="Remove vehicle"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                {!promoteVehicleIds.length && (
+                  <span className="text-[12px] text-slate-400">
+                    No vehicles selected.
+                  </span>
+                )}
+              </div>
+
+              <div className="max-h-52 overflow-y-auto space-y-2">
+                {filteredPromotionVehicles.map((vehicle) => {
+                  const selected = promoteVehicleIds.includes(vehicle.id);
+                  return (
+                    <label
+                      key={vehicle.id}
+                      className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                        selected
+                          ? "border-slate-900 bg-slate-900/5"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          setPromoteVehicleIds((prev) =>
+                            prev.includes(vehicle.id)
+                              ? prev.filter((id) => id !== vehicle.id)
+                              : [...prev, vehicle.id]
+                          )
+                        }
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-900">
+                          {vehicle.label ||
+                            vehicle.make ||
+                            vehicle.model ||
+                            `Vehicle #${vehicle.id}`}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          #{vehicle.id} ·{" "}
+                          {vehicle.plateNumber ?? vehicle.plate_number ?? "n/a"}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+                {!filteredPromotionVehicles.length && (
+                  <p className="text-xs text-slate-400">
+                    No vehicles match the search.
+                  </p>
+                )}
+              </div>
+            </div>
+          </label>
+          <div className="md:col-span-3 flex flex-col gap-2">
+            <button
+              type="submit"
+              disabled={promoteSubmitting}
+              className="self-start rounded-2xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {promoteSubmitting ? "Promoting…" : "Promote & assign"}
+            </button>
+            {promoteMessage && (
+              <p
+                className={`text-sm ${
+                  promoteMessage.type === "error"
+                    ? "text-rose-600"
+                    : "text-emerald-600"
+                }`}
+              >
+                {promoteMessage.text}
               </p>
             )}
           </div>
