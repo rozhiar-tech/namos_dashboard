@@ -1,11 +1,11 @@
 import { getStoredToken } from "./lib/authStorage";
 
 // Default: same-origin API through Nginx proxy
-const localApiBase = "http://95.111.224.58:3001/api";
+// const localApiBase = "http://95.111.224.58:3001/api";
 const DEFAULT_API_BASE = "/api";
 
 const getApiBase = () => {
-  const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || localApiBase;
+  const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
 
   // If someone sets http://... while app is on https, auto-upgrade
   if (
