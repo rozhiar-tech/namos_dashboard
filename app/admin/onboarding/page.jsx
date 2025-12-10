@@ -50,6 +50,8 @@ export default function OnboardingPage() {
   const [promoteMessage, setPromoteMessage] = useState(null);
   const [promoteSubmitting, setPromoteSubmitting] = useState(false);
   const [promoteVehicleSearch, setPromoteVehicleSearch] = useState("");
+  const [promoteDriverLicenseNumber, setPromoteDriverLicenseNumber] = useState("");
+  const [promoteGovernmentIdNumber, setPromoteGovernmentIdNumber] = useState("");
   const promotionVehicles = promoteOwnerId
     ? owners.find((o) => String(o.id) === String(promoteOwnerId))?.vehicles ??
       []
@@ -206,6 +208,8 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           ownerId: Number(promoteOwnerId),
           vehicleId: Number(primaryVehicle),
+          driverLicenseNumber: promoteDriverLicenseNumber,
+          governmentIdNumber: promoteGovernmentIdNumber,
         }),
       });
       const extraVehicleIds = promoteVehicleIds.slice(1);
@@ -232,6 +236,8 @@ export default function OnboardingPage() {
       });
       setPromoteOwnerId("");
       setPromoteVehicleIds([]);
+      setPromoteDriverLicenseNumber("");
+      setPromoteGovernmentIdNumber("");
       fetchOwners();
       setDriverRefreshKey((key) => key + 1);
     } catch (error) {
@@ -675,6 +681,20 @@ export default function OnboardingPage() {
               </div>
             </div>
           </label>
+          <TextInput
+            label="Driver license number"
+            name="driverLicenseNumber"
+            value={promoteDriverLicenseNumber}
+            onChange={(e) => setPromoteDriverLicenseNumber(e.target.value)}
+            required
+          />
+          <TextInput
+            label="Government ID"
+            name="governmentIdNumber"
+            value={promoteGovernmentIdNumber}
+            onChange={(e) => setPromoteGovernmentIdNumber(e.target.value)}
+            required
+          />
           <div className="md:col-span-3 flex flex-col gap-2">
             <button
               type="submit"
