@@ -1,22 +1,7 @@
-import { NextResponse } from "next/server";
+import { proxyToBackend } from "../../../../lib/backendProxy";
 
 export async function POST(request, { params }) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    
-    // TODO: Replace with actual assignment logic
-    return NextResponse.json({
-      success: true,
-      message: `Vehicle ${id} assigned successfully`,
-      vehicleId: id,
-    });
-  } catch (error) {
-    console.error("Vehicle assign error:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  const { id } = await params;
+  return proxyToBackend(`/vehicles/${id}/assign`, request);
 }
 
