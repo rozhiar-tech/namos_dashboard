@@ -77,7 +77,7 @@ function AdminLayoutContent({ children }) {
     <div className="min-h-screen bg-slate-100 flex">
       <aside className="hidden md:flex md:w-60 bg-slate-950 text-white flex-col">
         <div className="px-6 py-5 border-b border-white/10">
-          <p className="text-lg font-semibold">Namo Admin</p>
+          <p className="text-lg font-semibold">Namos Admin</p>
           <p className="text-xs text-white/70">Control center</p>
         </div>
         <nav className="flex-1 px-3 py-5 space-y-1">
@@ -103,7 +103,10 @@ function AdminLayoutContent({ children }) {
         </nav>
         <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60 space-y-2">
           <p className="text-white/80">
-            Signed in as <span className="font-semibold">{user.fullName ?? user.email ?? user.phone}</span>
+            Signed in as{" "}
+            <span className="font-semibold">
+              {user.fullName ?? user.email ?? user.phone}
+            </span>
           </p>
           <button
             onClick={handleSignOut}
