@@ -21,15 +21,23 @@ export async function proxyToBackend(path, request) {
 
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get("authorization");
+    const contentType = request.headers.get("content-type") || "";
+
+    // Check if this is a multipart/form-data request
+    const isMultipart = contentType.includes("multipart/form-data");
 
     // Prepare headers
+    const headers = {};
 
-    const headers = {
-      "Content-Type": "application/json",
-    };
+    // IMPORTANT: For FormData, DO NOT set Content-Type header manually
+    // fetch() will automatically set it with the correct boundary when body is FormData
+    // Setting it manually causes boundary mismatch errors
+    if (!isMultipart) {
+      headers["Content-Type"] = contentType || "application/json";
+    }
+    // For multipart, we explicitly don't set Content-Type - fetch handles it
 
     // Only add Authorization header if it exists AND it's not a login/register endpoint
-    // Login and register endpoints should not have Authorization headers
     const isAuthEndpoint =
       path.includes("/auth/login") || path.includes("/auth/register");
     if (authHeader && !isAuthEndpoint) {
@@ -39,10 +47,16 @@ export async function proxyToBackend(path, request) {
     // Get request body if it exists
     let body = null;
     if (request.method !== "GET" && request.method !== "HEAD") {
-      try {
-        body = await request.text();
-      } catch (e) {
-        // No body
+      if (isMultipart) {
+        // Get FormData from the request and pass it directly to fetch
+        // fetch will automatically set Content-Type with boundary
+        body = await request.formData();
+      } else {
+        try {
+          body = await request.text();
+        } catch (e) {
+          // No body
+        }
       }
     }
 

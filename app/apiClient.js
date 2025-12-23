@@ -27,10 +27,20 @@ const buildUrl = (path) => {
 };
 
 export async function apiRequest(path, options = {}) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-  };
+  const isFormData = options.body instanceof FormData;
+  
+  const headers = {};
+  
+  // Only set Content-Type for non-FormData requests
+  // FormData needs to set its own Content-Type with boundary
+  if (!isFormData && !options.headers?.["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Merge any custom headers (but don't override FormData's Content-Type)
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
 
   const explicitToken =
     typeof options.token === "string" && options.token.length > 0

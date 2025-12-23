@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import useAuth from "../hooks/useAuth";
+import useTranslation from "../hooks/useTranslation";
 
-const NAV_LINKS = [
-  { href: "/admin", label: "Overview", tab: "overview" },
-  { href: "/admin?tab=operations", label: "Operations", tab: "operations" },
-  { href: "/admin?tab=drivers", label: "Drivers", tab: "drivers" },
-  { href: "/admin?tab=fleet", label: "Fleet", tab: "fleet" },
-  { href: "/admin?tab=owners", label: "Owners", tab: "owners" },
-  { href: "/admin?tab=trips", label: "Trips", tab: "trips" },
-  { href: "/admin/onboarding", label: "Add records", tab: null },
-  { href: "/admin/live-map", label: "Live Map", tab: null },
+const NAV_CARDS = [
+  { href: "/admin", labelKey: "nav.overview", icon: "📊", color: "bg-blue-500" },
+  { href: "/admin?tab=operations", labelKey: "nav.operations", icon: "⚙️", color: "bg-purple-500" },
+  { href: "/admin?tab=drivers", labelKey: "nav.drivers", icon: "👤", color: "bg-green-500" },
+  { href: "/admin?tab=fleet", labelKey: "nav.fleet", icon: "🚗", color: "bg-yellow-500" },
+  { href: "/admin?tab=owners", labelKey: "nav.owners", icon: "👥", color: "bg-indigo-500" },
+  { href: "/admin?tab=trips", labelKey: "nav.trips", icon: "📍", color: "bg-red-500" },
+  { href: "/admin?tab=profit", labelKey: "nav.profit", icon: "💰", color: "bg-emerald-500" },
+  { href: "/admin?tab=guest-trips", labelKey: "nav.guestTrips", icon: "🎫", color: "bg-pink-500" },
+  { href: "/admin?tab=promo", labelKey: "nav.promo", icon: "📢", color: "bg-cyan-500" },
+  { href: "/admin/onboarding", labelKey: "nav.addRecords", icon: "➕", color: "bg-slate-500" },
+  { href: "/admin/live-map", labelKey: "nav.liveMap", icon: "🗺️", color: "bg-teal-500" },
 ];
 
 export default function AdminLayout({ children }) {
@@ -25,6 +29,14 @@ export default function AdminLayout({ children }) {
         </div>
       }
     >
+      <AdminLayoutWrapper>{children}</AdminLayoutWrapper>
+    </Suspense>
+  );
+}
+
+function AdminLayoutWrapper({ children }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100"><p className="text-sm text-slate-500">Loading...</p></div>}>
       <AdminLayoutContent>{children}</AdminLayoutContent>
     </Suspense>
   );
@@ -32,10 +44,11 @@ export default function AdminLayout({ children }) {
 
 function AdminLayoutContent({ children }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading, logout } = useAuth();
-  const activeTab = searchParams.get("tab") ?? "overview";
+  const { t, language, setLanguage } = useTranslation();
+  const currentTab = searchParams.get("tab") ?? "overview";
 
   useEffect(() => {
     if (loading) return;
@@ -48,17 +61,6 @@ function AdminLayoutContent({ children }) {
       router.replace("/login");
     }
   }, [loading, user, logout, router]);
-
-  const currentLabel = (() => {
-    if (pathname === "/admin") {
-      return (
-        NAV_LINKS.find((item) => item.tab === activeTab)?.label ?? "Overview"
-      );
-    }
-    return (
-      NAV_LINKS.find((item) => item.href === pathname)?.label ?? "Dashboard"
-    );
-  })();
 
   const handleSignOut = () => {
     logout();
@@ -73,79 +75,76 @@ function AdminLayoutContent({ children }) {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-100 flex">
-      <aside className="hidden md:flex md:w-60 bg-slate-950 text-white flex-col">
-        <div className="px-6 py-5 border-b border-white/10">
-          <p className="text-lg font-semibold">Namos Admin</p>
-          <p className="text-xs text-white/70">Control center</p>
-        </div>
-        <nav className="flex-1 px-3 py-5 space-y-1">
-          {NAV_LINKS.map((link) => {
-            const isAdminRoot = pathname === "/admin";
-            const isActive = link.tab
-              ? isAdminRoot && activeTab === link.tab
-              : pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`block rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-white/15 text-white"
-                    : "text-white/70 hover:bg-white/10"
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60 space-y-2">
-          <p className="text-white/80">
-            Signed in as{" "}
-            <span className="font-semibold">
-              {user.fullName ?? user.email ?? user.phone}
-            </span>
-          </p>
-          <button
-            onClick={handleSignOut}
-            className="w-full rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10"
-          >
-            Sign out
-          </button>
-        </div>
-      </aside>
+  const isActive = (href, labelKey) => {
+    if (href === "/admin") {
+      return pathname === "/admin" && currentTab === "overview";
+    }
+    if (href.includes("?tab=")) {
+      return pathname === "/admin" && currentTab === href.split("tab=")[1];
+    }
+    return pathname === href;
+  };
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 flex flex-wrap items-center gap-3 justify-between">
+  return (
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-500">Namo Operations Center</p>
-            <p className="text-lg font-semibold">{currentLabel}</p>
+            <h1 className="text-xl font-bold text-slate-900">{t("dashboard.title")}</h1>
+            <p className="text-xs text-slate-500">
+              {t("common.signedInAs")} <span className="font-semibold">{user.fullName ?? user.email ?? user.phone}</span>
+            </p>
           </div>
           <div className="flex items-center gap-3">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="px-3 py-2 text-sm border rounded-lg border-slate-200 hover:bg-slate-50"
+            >
+              <option value="en">English</option>
+              <option value="sv">Svenska</option>
+            </select>
             <button
               className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50"
               onClick={() => router.refresh()}
             >
-              Refresh data
+              {t("common.refresh")}
             </button>
-            <Link
-              href="/admin/onboarding"
-              className="px-3 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800"
-            >
-              Add records
-            </Link>
             <button
               onClick={handleSignOut}
-              className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50 md:hidden"
+              className="px-3 py-2 text-sm font-medium border rounded-lg border-slate-200 hover:bg-slate-50"
             >
-              Sign out
+              {t("common.signOut")}
             </button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
+      <div className="p-4 md:p-8">
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t("nav.overview")}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {NAV_CARDS.map((card) => (
+              <Link
+                key={card.href}
+                href={card.href}
+                className={`group relative overflow-hidden rounded-2xl p-6 transition-all hover:scale-105 hover:shadow-lg ${
+                  isActive(card.href, card.labelKey)
+                    ? "bg-slate-900 text-white shadow-md"
+                    : "bg-white text-slate-900 border border-slate-200"
+                }`}
+              >
+                <div className={`absolute top-0 right-0 w-20 h-20 ${card.color} opacity-10 rounded-full -mr-10 -mt-10`} />
+                <div className="relative">
+                  <div className="text-3xl mb-2">{card.icon}</div>
+                  <p className="text-sm font-semibold">{t(card.labelKey)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <main>{children}</main>
       </div>
     </div>
   );
