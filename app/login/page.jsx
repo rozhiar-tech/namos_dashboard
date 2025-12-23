@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import useAuth from "../hooks/useAuth";
 
 const INITIAL_FORM = {
@@ -9,12 +9,14 @@ const INITIAL_FORM = {
   password: "",
 };
 
-export default function LoginPage() {
+function LoginContent() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, user, loading } = useAuth();
+  const sessionExpired = searchParams?.get("expired") === "true";
 
   useEffect(() => {
     if (!loading && user) {
@@ -52,6 +54,11 @@ export default function LoginPage() {
             Sign in with your admin phone number and password.
           </p>
         </div>
+        {sessionExpired && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700">
+            Your session has expired. Please sign in again.
+          </div>
+        )}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Phone number
@@ -91,5 +98,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <p className="text-sm text-slate-500">Loading...</p>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

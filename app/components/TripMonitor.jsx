@@ -13,18 +13,8 @@ export default function TripMonitor() {
       const payload = await apiRequest("/admin/trips?limit=25");
       setTrips(payload?.trips ?? []);
     } catch (error) {
-      console.warn("trips fallback", error);
-      setTrips([
-        {
-          id: 301,
-          riderName: "Shakar",
-          pickupLocation: "Airport",
-          dropoffLocation: "Downtown",
-          status: "requested",
-          rideMode: "ride_now",
-          createdAt: Date.now() - 1000 * 60 * 2,
-        },
-      ]);
+      console.error("Failed to fetch trips:", error);
+      setTrips([]);
     } finally {
       setLoading(false);
     }

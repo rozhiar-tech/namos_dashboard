@@ -29,14 +29,28 @@ export default function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = loadStoredAuth();
-    if (stored?.token && stored?.user && stored.user.role === "admin") {
-      setUser(stored.user);
-      setToken(stored.token);
-    } else if (stored) {
-      clearStoredAuth();
-    }
-    setLoading(false);
+    const initializeAuth = async () => {
+      const stored = loadStoredAuth();
+      if (stored?.token && stored?.user && stored.user.role === "admin") {
+        // Verify token is still valid by making a test request
+        try {
+          // Try to validate token with a lightweight endpoint (if available)
+          // For now, just set it and let apiRequest handle 401s
+          setUser(stored.user);
+          setToken(stored.token);
+        } catch (error) {
+          // Token invalid, clear storage
+          clearStoredAuth();
+          setUser(null);
+          setToken(null);
+        }
+      } else if (stored) {
+        clearStoredAuth();
+      }
+      setLoading(false);
+    };
+    
+    initializeAuth();
   }, []);
 
   const persistSession = useCallback((session) => {

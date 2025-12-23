@@ -1,4 +1,4 @@
-import { getStoredToken } from "./lib/authStorage";
+import { getStoredToken, clearStoredAuth } from "./lib/authStorage";
 
 // Default: same-origin API through Nginx proxy
 // const localApiBase = "http://95.111.224.58:3001/api";
@@ -61,6 +61,23 @@ export async function apiRequest(path, options = {}) {
   });
 
   if (!response.ok) {
+    // Handle 401 Unauthorized - token expired or invalid
+    if (response.status === 401 && path !== "/auth/login" && path !== "/auth/register") {
+      // Clear stored auth on 401 to trigger re-login
+      // Don't clear for login/register endpoints to avoid infinite loops
+      if (typeof window !== "undefined") {
+        clearStoredAuth();
+        // Only redirect if we're not already on login page
+        if (window.location.pathname !== "/login") {
+          // Use a small delay to allow error handling to complete
+          setTimeout(() => {
+            window.location.href = "/login?expired=true";
+          }, 100);
+        }
+      }
+      throw new Error("Session expired. Please login again.");
+    }
+    
     let message = `Request failed (${response.status})`;
     try {
       const body = await response.json();

@@ -19,29 +19,8 @@ export default function DriverRoster() {
         }
       } catch (error) {
         if (!cancelled) {
-          setDrivers([
-            {
-              id: 12,
-              name: "Robin Hama",
-              phone: "+964 770 123 4567",
-              ownerName: "Ali Fleet",
-              vehicleLabel: "Camry 2019",
-              vehicleId: 3,
-              status: "online",
-              earningsToday: 78000,
-              sessionStartedAt: Date.now() - 1000 * 60 * 45,
-            },
-            {
-              id: 14,
-              name: "Sara Vian",
-              phone: "+964 770 222 444",
-              ownerName: "Self",
-              vehicleLabel: "Civic 2020",
-              vehicleId: 8,
-              status: "offline",
-              earningsToday: 0,
-            },
-          ]);
+          console.error("Failed to fetch drivers:", error);
+          setDrivers([]);
         }
       } finally {
         if (!cancelled) setLoading(false);

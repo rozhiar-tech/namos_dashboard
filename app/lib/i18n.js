@@ -86,6 +86,8 @@ const translations = {
       riderNotes: "Rider Notes",
       selectUser: "Select User",
       nearbyDrivers: "Nearby Drivers",
+      searchLocation: "Search location...",
+      selectOnMap: "Click on map or search for location",
     },
     // Promo
     promo: {
@@ -199,6 +201,8 @@ const translations = {
       riderNotes: "Resenärsanteckningar",
       selectUser: "Välj användare",
       nearbyDrivers: "Närliggande förare",
+      searchLocation: "Sök plats...",
+      selectOnMap: "Klicka på kartan eller sök efter plats",
     },
     // Promo
     promo: {

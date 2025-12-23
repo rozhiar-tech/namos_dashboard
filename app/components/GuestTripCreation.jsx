@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { apiRequest } from "../apiClient";
 import useTranslation from "../hooks/useTranslation";
+import dynamic from "next/dynamic";
+
+// Dynamically import LocationPicker to avoid SSR issues with Google Maps
+const LocationPicker = dynamic(() => import("./LocationPicker"), { ssr: false });
 
 const EMPTY_GUEST_FORM = {
   guestName: "",
@@ -58,12 +62,144 @@ export default function GuestTripCreation() {
     }));
   };
 
+  const handlePickupLocationChange = (locationData) => {
+    setGuestForm((prev) => ({
+      ...prev,
+      pickupLocation: locationData.location,
+      pickupLat: locationData.lat.toString(),
+      pickupLng: locationData.lng.toString(),
+    }));
+    // Calculate distance if dropoff is also set
+    if (guestForm.dropoffLat && guestForm.dropoffLng) {
+      calculateRoute(
+        locationData.lat,
+        locationData.lng,
+        parseFloat(guestForm.dropoffLat),
+        parseFloat(guestForm.dropoffLng)
+      );
+    }
+  };
+
+  const handleDropoffLocationChange = (locationData) => {
+    setGuestForm((prev) => ({
+      ...prev,
+      dropoffLocation: locationData.location,
+      dropoffLat: locationData.lat.toString(),
+      dropoffLng: locationData.lng.toString(),
+    }));
+    // Calculate distance if pickup is also set
+    if (guestForm.pickupLat && guestForm.pickupLng) {
+      calculateRoute(
+        parseFloat(guestForm.pickupLat),
+        parseFloat(guestForm.pickupLng),
+        locationData.lat,
+        locationData.lng
+      );
+    }
+  };
+
+  const calculateRoute = async (pickupLat, pickupLng, dropoffLat, dropoffLng) => {
+    if (!window.google || !window.google.maps) return;
+
+    try {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: { lat: pickupLat, lng: pickupLng },
+          destination: { lat: dropoffLat, lng: dropoffLng },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === "OK" && result.routes[0]) {
+            const route = result.routes[0];
+            const distanceKm = route.legs[0].distance.value / 1000; // Convert meters to km
+            const durationMin = Math.round(route.legs[0].duration.value / 60); // Convert seconds to minutes
+
+            setGuestForm((prev) => ({
+              ...prev,
+              distanceKm: distanceKm.toFixed(2),
+              durationMin: durationMin.toString(),
+            }));
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Error calculating route:", error);
+    }
+  };
+
   const handleUserInput = (e) => {
     const { name, value, type, checked } = e.target;
     setUserForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleUserPickupLocationChange = (locationData) => {
+    setUserForm((prev) => ({
+      ...prev,
+      pickupLocation: locationData.location,
+      pickupLat: locationData.lat.toString(),
+      pickupLng: locationData.lng.toString(),
+    }));
+    // Calculate distance if dropoff is also set
+    if (userForm.dropoffLat && userForm.dropoffLng) {
+      calculateUserRoute(
+        locationData.lat,
+        locationData.lng,
+        parseFloat(userForm.dropoffLat),
+        parseFloat(userForm.dropoffLng)
+      );
+    }
+  };
+
+  const handleUserDropoffLocationChange = (locationData) => {
+    setUserForm((prev) => ({
+      ...prev,
+      dropoffLocation: locationData.location,
+      dropoffLat: locationData.lat.toString(),
+      dropoffLng: locationData.lng.toString(),
+    }));
+    // Calculate distance if pickup is also set
+    if (userForm.pickupLat && userForm.pickupLng) {
+      calculateUserRoute(
+        parseFloat(userForm.pickupLat),
+        parseFloat(userForm.pickupLng),
+        locationData.lat,
+        locationData.lng
+      );
+    }
+  };
+
+  const calculateUserRoute = async (pickupLat, pickupLng, dropoffLat, dropoffLng) => {
+    if (!window.google || !window.google.maps) return;
+
+    try {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: { lat: pickupLat, lng: pickupLng },
+          destination: { lat: dropoffLat, lng: dropoffLng },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === "OK" && result.routes[0]) {
+            const route = result.routes[0];
+            const distanceKm = route.legs[0].distance.value / 1000; // Convert meters to km
+            const durationMin = Math.round(route.legs[0].duration.value / 60); // Convert seconds to minutes
+
+            setUserForm((prev) => ({
+              ...prev,
+              distanceKm: distanceKm.toFixed(2),
+              durationMin: durationMin.toString(),
+            }));
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Error calculating route:", error);
+    }
   };
 
   const handleGuestSubmit = async (e) => {
@@ -187,20 +323,36 @@ export default function GuestTripCreation() {
               value={guestForm.guestEmail}
               onChange={handleGuestInput}
             />
-            <TextInput
-              label={t("guestTrips.pickupLocation")}
-              name="pickupLocation"
-              value={guestForm.pickupLocation}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label={t("guestTrips.dropoffLocation")}
-              name="dropoffLocation"
-              value={guestForm.dropoffLocation}
-              onChange={handleGuestInput}
-              required
-            />
+          </div>
+          <div className="space-y-6">
+            <div>
+              <LocationPicker
+                label={t("guestTrips.pickupLocation")}
+                value={guestForm.pickupLocation}
+                coordinates={
+                  guestForm.pickupLat && guestForm.pickupLng
+                    ? { lat: parseFloat(guestForm.pickupLat), lng: parseFloat(guestForm.pickupLng) }
+                    : null
+                }
+                onLocationChange={handlePickupLocationChange}
+                required
+              />
+            </div>
+            <div>
+              <LocationPicker
+                label={t("guestTrips.dropoffLocation")}
+                value={guestForm.dropoffLocation}
+                coordinates={
+                  guestForm.dropoffLat && guestForm.dropoffLng
+                    ? { lat: parseFloat(guestForm.dropoffLat), lng: parseFloat(guestForm.dropoffLng) }
+                    : null
+                }
+                onLocationChange={handleDropoffLocationChange}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <SelectInput
               label={t("guestTrips.rideMode")}
               name="rideMode"
@@ -222,59 +374,25 @@ export default function GuestTripCreation() {
                 required
               />
             )}
-            <TextInput
-              label="Pickup Lat"
-              name="pickupLat"
-              type="number"
-              step="any"
-              value={guestForm.pickupLat}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label="Pickup Lng"
-              name="pickupLng"
-              type="number"
-              step="any"
-              value={guestForm.pickupLng}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label="Dropoff Lat"
-              name="dropoffLat"
-              type="number"
-              step="any"
-              value={guestForm.dropoffLat}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label="Dropoff Lng"
-              name="dropoffLng"
-              type="number"
-              step="any"
-              value={guestForm.dropoffLng}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label="Distance (km)"
-              name="distanceKm"
-              type="number"
-              step="0.1"
-              value={guestForm.distanceKm}
-              onChange={handleGuestInput}
-              required
-            />
-            <TextInput
-              label="Duration (min)"
-              name="durationMin"
-              type="number"
-              value={guestForm.durationMin}
-              onChange={handleGuestInput}
-              required
-            />
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
+              <TextInput
+                label="Distance (km)"
+                name="distanceKm"
+                type="number"
+                step="0.1"
+                value={guestForm.distanceKm}
+                onChange={handleGuestInput}
+                required
+              />
+              <TextInput
+                label="Duration (min)"
+                name="durationMin"
+                type="number"
+                value={guestForm.durationMin}
+                onChange={handleGuestInput}
+                required
+              />
+            </div>
             <SelectInput
               label={t("guestTrips.vehicleTier")}
               name="vehicleTier"
@@ -335,73 +453,55 @@ export default function GuestTripCreation() {
               onChange={handleUserInput}
               required
             />
-            <TextInput
-              label={t("guestTrips.pickupLocation")}
-              name="pickupLocation"
-              value={userForm.pickupLocation}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label={t("guestTrips.dropoffLocation")}
-              name="dropoffLocation"
-              value={userForm.dropoffLocation}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Pickup Lat"
-              name="pickupLat"
-              type="number"
-              step="any"
-              value={userForm.pickupLat}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Pickup Lng"
-              name="pickupLng"
-              type="number"
-              step="any"
-              value={userForm.pickupLng}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Dropoff Lat"
-              name="dropoffLat"
-              type="number"
-              step="any"
-              value={userForm.dropoffLat}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Dropoff Lng"
-              name="dropoffLng"
-              type="number"
-              step="any"
-              value={userForm.dropoffLng}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Distance (km)"
-              name="distanceKm"
-              type="number"
-              step="0.1"
-              value={userForm.distanceKm}
-              onChange={handleUserInput}
-              required
-            />
-            <TextInput
-              label="Duration (min)"
-              name="durationMin"
-              type="number"
-              value={userForm.durationMin}
-              onChange={handleUserInput}
-              required
-            />
+          </div>
+          <div className="space-y-6">
+            <div>
+              <LocationPicker
+                label={t("guestTrips.pickupLocation")}
+                value={userForm.pickupLocation}
+                coordinates={
+                  userForm.pickupLat && userForm.pickupLng
+                    ? { lat: parseFloat(userForm.pickupLat), lng: parseFloat(userForm.pickupLng) }
+                    : null
+                }
+                onLocationChange={handleUserPickupLocationChange}
+                required
+              />
+            </div>
+            <div>
+              <LocationPicker
+                label={t("guestTrips.dropoffLocation")}
+                value={userForm.dropoffLocation}
+                coordinates={
+                  userForm.dropoffLat && userForm.dropoffLng
+                    ? { lat: parseFloat(userForm.dropoffLat), lng: parseFloat(userForm.dropoffLng) }
+                    : null
+                }
+                onLocationChange={handleUserDropoffLocationChange}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
+              <TextInput
+                label="Distance (km)"
+                name="distanceKm"
+                type="number"
+                step="0.1"
+                value={userForm.distanceKm}
+                onChange={handleUserInput}
+                required
+              />
+              <TextInput
+                label="Duration (min)"
+                name="durationMin"
+                type="number"
+                value={userForm.durationMin}
+                onChange={handleUserInput}
+                required
+              />
+            </div>
             <SelectInput
               label={t("guestTrips.rideMode")}
               name="rideMode"

@@ -17,29 +17,9 @@ export default function FleetBoard() {
       const payload = await apiRequest("/vehicles/mine");
       setVehicles(payload?.vehicles ?? []);
     } catch (err) {
-      console.warn("Unable to load vehicles", err);
+      console.error("Unable to load vehicles", err);
       setError(err?.message ?? "Unable to load vehicles.");
-      setVehicles([
-        {
-          id: 3,
-          label: "Camry 2019",
-          plateNumber: "ABC-123",
-          ownerName: "Ali Fleet",
-          seatCount: 4,
-          color: "Black",
-          activeSession: { driverId: 12, driverName: "Robin" },
-          status: "online",
-        },
-        {
-          id: 8,
-          label: "Sprinter 2020",
-          plateNumber: "KRD-009",
-          ownerName: "Ali Fleet",
-          seatCount: 8,
-          color: "White",
-          status: "idle",
-        },
-      ]);
+      setVehicles([]);
     } finally {
       setLoading(false);
     }

@@ -16,22 +16,8 @@ export default function OwnerEarnings() {
         }
       } catch (error) {
         if (!cancelled) {
-          setOwners([
-            {
-              id: 9,
-              name: "Ali Fleet",
-              revenueMonth: 1250000,
-              vehicles: 6,
-              drivers: 9,
-            },
-            {
-              id: 11,
-              name: "City Cars AB",
-              revenueMonth: 890000,
-              vehicles: 4,
-              drivers: 6,
-            },
-          ]);
+          console.error("Failed to fetch owners:", error);
+          setOwners([]);
         }
       }
     }

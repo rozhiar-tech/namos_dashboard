@@ -76,7 +76,7 @@ export default function MetricsGrid() {
           label="Drivers online"
           value={metrics.onlineDrivers}
           hint="Currently sharing live location"
-          trend="Includes mock sessions"
+          trend="Currently sharing location"
           loading={loading}
         />
         <MetricCard
