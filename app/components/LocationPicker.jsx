@@ -126,7 +126,9 @@ export default function LocationPicker({
     // Don't trigger location change on manual input - wait for autocomplete selection
   };
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const apiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    "AIzaSyCAZL6mT6W0fTseGBilgyzoZcm8yaTZ2GU";
 
   if (!apiKey) {
     return (
