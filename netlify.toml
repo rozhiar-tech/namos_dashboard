@@ -1,3 +1,5 @@
+# Set GOOGLE_MAPS_API_KEY in Netlify env (not NEXT_PUBLIC_*) so the key
+# is never inlined into the client bundle and secrets scanning passes.
 [build]
   command = "npm run build"
 

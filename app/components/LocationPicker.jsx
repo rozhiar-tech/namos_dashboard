@@ -42,6 +42,27 @@ export default function LocationPicker({
   );
   const [address, setAddress] = useState(value || "");
   const autocompleteRef = useRef(null);
+  const [apiKey, setApiKey] = useState(null);
+  const [apiKeyError, setApiKeyError] = useState(null);
+
+  // Fetch Maps API key from server so it's never in the client bundle (avoids Netlify secrets scan)
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/config/maps-key")
+      .then((res) => {
+        if (!res.ok) throw new Error("Maps key not configured");
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.key) setApiKey(data.key);
+        else setApiKeyError(true);
+      })
+      .catch(() => {
+        if (!cancelled) setApiKeyError(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Update selected location when coordinates prop changes
   useEffect(() => {
@@ -126,14 +147,27 @@ export default function LocationPicker({
     // Don't trigger location change on manual input - wait for autocomplete selection
   };
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (apiKeyError || (apiKey === null && !apiKeyError)) {
+    if (apiKeyError) {
+      return (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
+          Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY
+          in your Netlify environment variables (not NEXT_PUBLIC_).
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+        Loading map…
+      </div>
+    );
+  }
 
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
-        Google Maps API key is not configured. Please set
-        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable in your Netlify
-        settings.
+        Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY
+        in your Netlify environment variables.
       </div>
     );
   }
