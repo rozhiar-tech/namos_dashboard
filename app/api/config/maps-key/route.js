@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 
 /**
- * Serves the Google Maps API key from server-side env only.
- * Using a non-NEXT_PUBLIC_ variable keeps the key out of the client bundle,
- * so Netlify's secrets scanner won't find it in build output.
- * Set GOOGLE_MAPS_API_KEY in Netlify (not NEXT_PUBLIC_GOOGLE_MAPS_API_KEY).
+ * Serves the Google Maps API key from server-side env.
+ * Prefer GOOGLE_MAPS_API_KEY (keeps key out of client bundle for Netlify).
+ * Falls back to NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for local/dev.
  */
 export async function GET() {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key =
+    process.env.GOOGLE_MAPS_API_KEY ||
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!key) {
     return NextResponse.json(
       { error: "Google Maps API key not configured" },

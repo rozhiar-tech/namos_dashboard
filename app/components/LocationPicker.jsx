@@ -151,8 +151,8 @@ export default function LocationPicker({
     if (apiKeyError) {
       return (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
-          Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY
-          in your Netlify environment variables (not NEXT_PUBLIC_).
+          Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY or
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Netlify env vars, or in .env.local for local dev.
         </div>
       );
     }
@@ -166,8 +166,8 @@ export default function LocationPicker({
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
-        Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY
-        in your Netlify environment variables.
+        Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY or
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Netlify or .env.local.
       </div>
     );
   }
