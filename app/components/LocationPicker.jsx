@@ -38,7 +38,7 @@ export default function LocationPicker({
   const { t } = useTranslation();
   const [map, setMap] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(
-    coordinates || defaultCenter
+    coordinates || defaultCenter,
   );
   const [address, setAddress] = useState(value || "");
   const autocompleteRef = useRef(null);
@@ -90,7 +90,7 @@ export default function LocationPicker({
         });
       }
     },
-    [onLocationChange]
+    [onLocationChange],
   );
 
   const onPlaceChanged = useCallback(() => {
@@ -126,15 +126,14 @@ export default function LocationPicker({
     // Don't trigger location change on manual input - wait for autocomplete selection
   };
 
-  const apiKey =
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    "AIzaSyCAZL6mT6W0fTseGBilgyzoZcm8yaTZ2GU";
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
         Google Maps API key is not configured. Please set
-        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable.
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable in your Netlify
+        settings.
       </div>
     );
   }
