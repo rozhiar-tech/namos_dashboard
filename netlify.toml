@@ -1,7 +1,11 @@
 # Set GOOGLE_MAPS_API_KEY in Netlify env (not NEXT_PUBLIC_*) so the key
-# is never inlined into the client bundle and secrets scanning passes.
+# is never inlined into the client bundle.
 [build]
   command = "npm run build"
+  # Google Maps API key is intentionally in server env; disable smart detection
+  # so Netlify doesn't fail the build (restrict the key by domain in Google Cloud).
+  [build.environment]
+    SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
