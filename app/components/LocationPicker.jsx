@@ -131,7 +131,7 @@ export default function LocationPicker({
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
-        Google Maps API key is not configured. Please set
+        Google Maps API key is not configured. Please sett
         NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable in your Netlify
         settings.
       </div>
