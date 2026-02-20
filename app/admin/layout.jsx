@@ -10,6 +10,7 @@ const NAV_CARDS = [
   { href: "/admin", labelKey: "nav.overview", icon: "📊", color: "bg-blue-500" },
   { href: "/admin?tab=operations", labelKey: "nav.operations", icon: "⚙️", color: "bg-purple-500" },
   { href: "/admin?tab=drivers", labelKey: "nav.drivers", icon: "👤", color: "bg-green-500" },
+  { href: "/admin?tab=users", labelKey: "nav.users", icon: "🧾", color: "bg-orange-500" },
   { href: "/admin?tab=fleet", labelKey: "nav.fleet", icon: "🚗", color: "bg-yellow-500" },
   { href: "/admin?tab=owners", labelKey: "nav.owners", icon: "👥", color: "bg-indigo-500" },
   { href: "/admin?tab=trips", labelKey: "nav.trips", icon: "📍", color: "bg-red-500" },

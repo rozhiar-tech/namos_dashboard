@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { apiRequest } from "../../apiClient";
+import useAuth from "../../hooks/useAuth";
 import useSocket from "../../hooks/useSocket";
 
 const MapComponent = dynamic(() => import("../../components/MapComponent"), {
@@ -17,7 +20,93 @@ const SOCKET_URL =
     : rawSocketUrl;
 
 export default function LiveMapPage() {
-  const { driverLocations, trips, events } = useSocket(SOCKET_URL);
+  const { token, user, loading: authLoading } = useAuth();
+  const [snapshotDrivers, setSnapshotDrivers] = useState([]);
+  const [snapshotTrips, setSnapshotTrips] = useState([]);
+  const [snapshotLoading, setSnapshotLoading] = useState(true);
+  const [snapshotError, setSnapshotError] = useState(null);
+  const [adminLocation, setAdminLocation] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSnapshot = async () => {
+      if (authLoading) return;
+      if (!token || user?.role !== "admin") {
+        if (!cancelled) {
+          setSnapshotDrivers([]);
+          setSnapshotTrips([]);
+          setSnapshotLoading(false);
+        }
+        return;
+      }
+
+      setSnapshotLoading(true);
+      setSnapshotError(null);
+
+      try {
+        const payload = await apiRequest("/admin/live-map/snapshot", { token });
+        if (cancelled) return;
+        setSnapshotDrivers(Array.isArray(payload?.drivers) ? payload.drivers : []);
+        setSnapshotTrips(Array.isArray(payload?.trips) ? payload.trips : []);
+      } catch (error) {
+        if (cancelled) return;
+        setSnapshotError(error?.message ?? "Failed to load live map snapshot.");
+      } finally {
+        if (!cancelled) setSnapshotLoading(false);
+      }
+    };
+
+    loadSnapshot();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, token, user?.role]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator?.geolocation) return;
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) return;
+        const lat = Number(position?.coords?.latitude);
+        const lng = Number(position?.coords?.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setAdminLocation({ lat, lng });
+        }
+      },
+      () => {},
+      {
+        enableHighAccuracy: false,
+        maximumAge: 15000,
+        timeout: 10000,
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const socketToken = authLoading || snapshotLoading ? null : token;
+
+  const { driverLocations, trips, events, connected, connectionError } = useSocket(
+    SOCKET_URL,
+    {
+      token: socketToken,
+      initialDrivers: snapshotDrivers,
+      initialTrips: snapshotTrips,
+    }
+  );
+
+  const statusText = snapshotLoading
+    ? "Loading snapshot…"
+    : connectionError
+    ? `Socket error: ${connectionError}`
+    : connected
+    ? "Socket connected"
+    : "Connecting socket…";
 
   return (
     <div className="space-y-6">
@@ -31,10 +120,14 @@ export default function LiveMapPage() {
               <p className="text-xs text-slate-500">
                 {driverLocations.length} drivers sharing GPS right now
               </p>
+              <p className="text-[11px] text-slate-400 mt-1">{statusText}</p>
+              {snapshotError && (
+                <p className="text-[11px] text-rose-600 mt-1">{snapshotError}</p>
+              )}
             </div>
           </div>
           <div className="h-[520px] rounded-2xl overflow-hidden border border-slate-100">
-            <MapComponent drivers={driverLocations} />
+            <MapComponent drivers={driverLocations} adminLocation={adminLocation} />
           </div>
         </article>
 
@@ -128,11 +221,11 @@ function renderEventText(event) {
     case "location":
       return `Driver #${payload.driverId} updated location.`;
     case "trip":
-      return `Trip #${payload.id} ${payload.status ?? "requested"}.`;
+      return `Trip #${payload.id ?? payload.tripId} ${payload.status ?? "requested"}.`;
     case "driver_status":
       return `Driver #${payload.driverId} status ${payload.status}.`;
     case "session":
-      return `Session event vehicle #${payload.vehicleId} driver #${payload.driverId}.`;
+      return `Session ${payload.action ?? "event"} vehicle #${payload.vehicleId} driver #${payload.driverId}.`;
     default:
       return payload.message ?? "Event";
   }

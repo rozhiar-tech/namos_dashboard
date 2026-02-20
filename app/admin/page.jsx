@@ -12,6 +12,7 @@ import TripMonitor from "../components/TripMonitor";
 import ProfitCalculation from "../components/ProfitCalculation";
 import GuestTripCreation from "../components/GuestTripCreation";
 import PromoManagement from "../components/PromoManagement";
+import UserManagement from "../components/UserManagement";
 import useTranslation from "../hooks/useTranslation";
 
 function AdminContent() {
@@ -43,6 +44,8 @@ function AdminContent() {
           <DriverRoster />
         </div>
       );
+    case "users":
+      return <UserManagement />;
     case "fleet":
       return <FleetBoard />;
     case "owners":

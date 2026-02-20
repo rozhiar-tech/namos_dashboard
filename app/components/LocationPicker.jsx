@@ -61,7 +61,9 @@ export default function LocationPicker({
       .catch(() => {
         if (!cancelled) setApiKeyError(true);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Update selected location when coordinates prop changes
@@ -152,7 +154,8 @@ export default function LocationPicker({
       return (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
           Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY or
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Netlify env vars, or in .env.local for local dev.
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Netlify env vars, or in .env.local
+          for local dev.
         </div>
       );
     }
